@@ -23,7 +23,12 @@
 
     <nav class="quick-actions" aria-label="Acciones principales">
       <button type="button">Favoritos</button>
-      <button type="button">Carrito</button>
+      <button type="button" class="cart-button" (click)="cartOpen.set(true)">
+        Carrito
+        @if (cartCount() > 0) {
+          <span>{{ cartCount() }}</span>
+        }
+      </button>
     </nav>
   </header>
 
@@ -49,14 +54,14 @@
   </section>
 
   <section class="category-strip" aria-label="Categorias">
-    @for (category of categories; track category.id) {
+    @for (category of categories(); track category.id) {
       <button
         type="button"
         class="category-item"
-        [class.active]="selectedCategory() === category.id"
-        (click)="selectCategory(category.id)"
+        [class.active]="selectedCategory() === category.slug"
+        (click)="selectCategory(category.slug)"
       >
-        <strong>{{ category.label }}</strong>
+        <strong>{{ category.name }}</strong>
         <span>{{ category.description }}</span>
       </button>
     }
@@ -74,15 +79,15 @@
 
       <div class="featured-row">
         @for (product of featuredProducts(); track product.id) {
-          <article class="featured-card">
-            @if (product.offer) {
-              <span class="badge">Oferta</span>
-            }
-            <img [src]="product.imageUrl" [alt]="product.name" />
-            <div>
-              <strong>{{ product.name }}</strong>
-              <span>{{ product.brand }} - {{ product.measure }}</span>
-              <p>{{ formatPrice(product.price) }}</p>
+        <article class="featured-card">
+          @if (product.offer) {
+            <span class="badge">Oferta</span>
+          }
+          <img [src]="productImage(product)" [alt]="product.name" />
+          <div>
+            <strong>{{ product.name }}</strong>
+            <span>{{ product.brand }} - {{ product.measure }}</span>
+            <p>{{ formatPrice(product.price) }}</p>
             </div>
           </article>
         }
@@ -117,7 +122,7 @@
             @if (product.offer) {
               <span class="badge">Oferta</span>
             }
-            <img [src]="product.imageUrl" [alt]="product.name" />
+            <img [src]="productImage(product)" [alt]="product.name" />
           </div>
           <div class="product-info">
             <span>{{ product.brand }}</span>
@@ -130,12 +135,13 @@
               }
             </div>
             <div class="stock-line">
-              <span [class.out-of-stock]="product.stock === 0">
-                {{ product.stock > 0 ? 'En stock' : 'Sin stock' }}
+              <span [class.out-of-stock]="!hasStock(product)">
+                {{ hasStock(product) ? 'En stock' : 'Sin stock' }}
               </span>
               <button
                 type="button"
-                [disabled]="product.stock === 0"
+                [disabled]="!hasStock(product)"
+                (click)="addToCart(product)"
                 aria-label="Agregar {{ product.name }} al carrito"
               >
                 +
@@ -148,4 +154,137 @@
       }
     </div>
   </section>
+
+  @if (cartOpen()) {
+    <button type="button" class="cart-backdrop" aria-label="Cerrar carrito" (click)="closeCart()"></button>
+
+    <aside class="cart-drawer" aria-label="Carrito de compras">
+      <header class="cart-header">
+        <div>
+          <p class="eyebrow">Compra online</p>
+          <h2>Carrito</h2>
+        </div>
+        <button type="button" class="icon-button" aria-label="Cerrar carrito" (click)="closeCart()">x</button>
+      </header>
+
+      @if (orderSuccess(); as order) {
+        <section class="success-box">
+          <span>Pedido confirmado</span>
+          <strong>Codigo {{ order.pickupCode }}</strong>
+          <p>Guardalo para retirar en el local. Total: {{ formatPrice(order.totalAmount) }}</p>
+        </section>
+      }
+
+      @if (cartItems().length > 0) {
+        <div class="cart-items">
+          @for (item of cartItems(); track item.product.id) {
+            <article class="cart-item">
+              <img [src]="productImage(item.product)" [alt]="item.product.name" />
+              <div class="cart-item-main">
+                <strong>{{ item.product.name }}</strong>
+                <span>{{ item.product.brand }} - {{ item.product.measure }}</span>
+                <small>{{ formatPrice(item.product.price) }}</small>
+              </div>
+              <div class="quantity-control" aria-label="Cantidad">
+                <button type="button" (click)="decreaseQuantity(item.product.id)">-</button>
+                <span>{{ item.quantity }}</span>
+                <button
+                  type="button"
+                  [disabled]="item.quantity >= availableStock(item.product)"
+                  (click)="increaseQuantity(item.product.id)"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                type="button"
+                class="remove-button"
+                (click)="removeFromCart(item.product.id)"
+              >
+                Quitar
+              </button>
+            </article>
+          }
+        </div>
+
+        <footer class="cart-footer">
+          <div class="total-line">
+            <span>Subtotal</span>
+            <strong>{{ formatPrice(cartSubtotal()) }}</strong>
+          </div>
+
+          @if (!checkoutOpen()) {
+            <button type="button" class="primary-action" (click)="openCheckout()">Continuar compra</button>
+          }
+
+          @if (checkoutOpen()) {
+            <form class="checkout-form" (ngSubmit)="submitCheckout()">
+              <label>
+                Nombre y apellido
+                <input
+                  type="text"
+                  autocomplete="name"
+                  required
+                  [ngModel]="checkout().customerName"
+                  (ngModelChange)="updateCheckout('customerName', $event)"
+                  name="customerName"
+                />
+              </label>
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  autocomplete="email"
+                  required
+                  [ngModel]="checkout().customerEmail"
+                  (ngModelChange)="updateCheckout('customerEmail', $event)"
+                  name="customerEmail"
+                />
+              </label>
+
+              <label>
+                WhatsApp
+                <input
+                  type="tel"
+                  autocomplete="tel"
+                  required
+                  [ngModel]="checkout().customerPhone"
+                  (ngModelChange)="updateCheckout('customerPhone', $event)"
+                  name="customerPhone"
+                />
+              </label>
+
+              <label>
+                Medio de pago
+                <select
+                  required
+                  [ngModel]="checkout().paymentMethod"
+                  (ngModelChange)="updateCheckout('paymentMethod', $event)"
+                  name="paymentMethod"
+                >
+                  <option value="PAY_AT_STORE">Pago al retirar</option>
+                  <option value="BANK_TRANSFER">Transferencia bancaria</option>
+                  <option value="MERCADO_PAGO">Mercado Pago</option>
+                </select>
+              </label>
+
+              @if (checkoutError()) {
+                <p class="checkout-error">{{ checkoutError() }}</p>
+              }
+
+              <button type="submit" class="primary-action" [disabled]="checkoutLoading()">
+                {{ checkoutLoading() ? 'Confirmando...' : 'Confirmar pedido' }}
+              </button>
+            </form>
+          }
+        </footer>
+      } @else {
+        <section class="cart-empty">
+          <strong>Tu carrito esta vacio</strong>
+          <p>Agrega productos del catalogo para preparar el retiro en local.</p>
+        </section>
+      }
+    </aside>
+  }
 </main>
