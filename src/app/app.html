@@ -1,7 +1,9 @@
 <main class="storefront">
   <header class="topbar">
     <a class="brand" href="#" aria-label="Inicio Neumaticos Chubut">
-      <span class="brand-mark">NC</span>
+      <span class="brand-mark">
+        <img src="/brand/logo-arg-white.svg" alt="" />
+      </span>
       <span>
         <strong>Neumaticos Chubut</strong>
         <small>Retiro en local</small>
@@ -9,7 +11,7 @@
     </a>
 
     <label class="search" for="site-search">
-      <span aria-hidden="true">Buscar</span>
+      <span class="search-icon" aria-hidden="true"></span>
       <input
         id="site-search"
         type="search"
@@ -128,8 +130,16 @@
               }
             </div>
             <div class="stock-line">
-              <span>{{ product.stock }} disponibles</span>
-              <button type="button" aria-label="Agregar {{ product.name }} al carrito">+</button>
+              <span [class.out-of-stock]="product.stock === 0">
+                {{ product.stock > 0 ? 'En stock' : 'Sin stock' }}
+              </span>
+              <button
+                type="button"
+                [disabled]="product.stock === 0"
+                aria-label="Agregar {{ product.name }} al carrito"
+              >
+                +
+              </button>
             </div>
           </div>
         </article>
