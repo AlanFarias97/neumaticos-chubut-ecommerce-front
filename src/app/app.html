@@ -22,7 +22,7 @@
     </label>
 
     <nav class="quick-actions" aria-label="Acciones principales">
-      <button type="button">Favoritos</button>
+      <button type="button" class="ghost-action">Favoritos</button>
       <button type="button" class="cart-button" (click)="cartOpen.set(true)">
         Carrito
         @if (cartCount() > 0) {
@@ -79,15 +79,18 @@
 
       <div class="featured-row">
         @for (product of featuredProducts(); track product.id) {
-        <article class="featured-card">
-          @if (product.offer) {
-            <span class="badge">Oferta</span>
-          }
-          <img [src]="productImage(product)" [alt]="product.name" />
-          <div>
-            <strong>{{ product.name }}</strong>
-            <span>{{ product.brand }} - {{ product.measure }}</span>
-            <p>{{ formatPrice(product.price) }}</p>
+          <article class="featured-card">
+            @if (product.offer) {
+              <span class="badge">Oferta</span>
+            }
+            <img [src]="productImage(product)" [alt]="product.name" />
+            <div>
+              <strong>{{ product.name }}</strong>
+              <span>{{ product.brand }} - {{ product.measure }}</span>
+              <p>{{ formatPrice(product.price) }}</p>
+              <button type="button" [disabled]="!hasStock(product)" (click)="addToCart(product)">
+                Agregar al carrito
+              </button>
             </div>
           </article>
         }
@@ -145,17 +148,36 @@
   </section>
 
   <section id="catalog" class="catalog">
-    <div class="section-heading">
-      <div>
-        <p class="eyebrow">Catalogo</p>
-        <h2>Productos disponibles</h2>
+    <div class="catalog-toolbar">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Catalogo</p>
+          <h2>Productos disponibles</h2>
+          <small>{{ activeCategoryName() }} - {{ filteredProducts().length }} resultados</small>
+        </div>
       </div>
-      <span>{{ filteredProducts().length }} resultados</span>
+
+      <div class="view-switch" aria-label="Vista del catalogo">
+        <button
+          type="button"
+          [class.active]="catalogViewMode() === 'grid'"
+          (click)="catalogViewMode.set('grid')"
+        >
+          Grilla
+        </button>
+        <button
+          type="button"
+          [class.active]="catalogViewMode() === 'list'"
+          (click)="catalogViewMode.set('list')"
+        >
+          Lista
+        </button>
+      </div>
     </div>
 
-    <div class="product-grid">
+    <div class="product-grid" [class.list-view]="catalogViewMode() === 'list'">
       @for (product of filteredProducts(); track product.id) {
-        <article class="product-card">
+        <article class="product-card" [class.unavailable]="!hasStock(product)">
           <div class="product-image">
             @if (product.offer) {
               <span class="badge">Oferta</span>
@@ -166,6 +188,12 @@
             <span>{{ product.brand }}</span>
             <h3>{{ product.name }}</h3>
             <p>{{ product.measure }}</p>
+            <div class="product-tags">
+              <small>{{ product.category.name }}</small>
+              @if (savingsPercentage(product); as discount) {
+                <small class="discount-tag">{{ discount }}% off</small>
+              }
+            </div>
             <div class="price-line">
               <strong>{{ formatPrice(product.price) }}</strong>
               @if (product.originalPrice) {
@@ -205,6 +233,12 @@
         <button type="button" class="icon-button" aria-label="Cerrar carrito" (click)="closeCart()">x</button>
       </header>
 
+      <div class="checkout-steps" aria-label="Pasos del checkout">
+        <span class="active">Carrito</span>
+        <span [class.active]="checkoutOpen()">Datos</span>
+        <span>Retiro</span>
+      </div>
+
       @if (orderSuccess(); as order) {
         <section class="success-box">
           <span>Pedido confirmado</span>
@@ -223,16 +257,19 @@
                 <span>{{ item.product.brand }} - {{ item.product.measure }}</span>
                 <small>{{ formatPrice(item.product.price) }}</small>
               </div>
-              <div class="quantity-control" aria-label="Cantidad">
-                <button type="button" (click)="decreaseQuantity(item.product.id)">-</button>
-                <span>{{ item.quantity }}</span>
-                <button
-                  type="button"
-                  [disabled]="item.quantity >= availableStock(item.product)"
-                  (click)="increaseQuantity(item.product.id)"
-                >
-                  +
-                </button>
+              <div class="cart-item-side">
+                <div class="quantity-control" aria-label="Cantidad">
+                  <button type="button" (click)="decreaseQuantity(item.product.id)">-</button>
+                  <span>{{ item.quantity }}</span>
+                  <button
+                    type="button"
+                    [disabled]="item.quantity >= availableStock(item.product)"
+                    (click)="increaseQuantity(item.product.id)"
+                  >
+                    +
+                  </button>
+                </div>
+                <strong>{{ formatPrice(itemSubtotal(item)) }}</strong>
               </div>
               <button
                 type="button"
@@ -257,6 +294,11 @@
 
           @if (checkoutOpen()) {
             <form class="checkout-form" (ngSubmit)="submitCheckout()">
+              <div class="checkout-note">
+                <strong>Datos para retirar</strong>
+                <span>Te vamos a mostrar el codigo al confirmar el pedido.</span>
+              </div>
+
               <label>
                 Nombre y apellido
                 <input
@@ -311,7 +353,7 @@
                 <p class="checkout-error">{{ checkoutError() }}</p>
               }
 
-              <button type="submit" class="primary-action" [disabled]="checkoutLoading()">
+              <button type="submit" class="primary-action" [disabled]="!canSubmitCheckout()">
                 {{ checkoutLoading() ? 'Confirmando...' : 'Confirmar pedido' }}
               </button>
             </form>

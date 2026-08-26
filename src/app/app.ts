@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 type CategoryId = 'all' | string;
 type PaymentMethod = 'MERCADO_PAGO' | 'BANK_TRANSFER' | 'PAY_AT_STORE';
+type CatalogViewMode = 'grid' | 'list';
 
 interface Category {
   id: number | CategoryId;
@@ -90,6 +91,7 @@ export class App implements OnInit {
   readonly lookupLoading = signal(false);
   readonly lookupError = signal('');
   readonly lookupResult = signal<OrderResponse | null>(null);
+  readonly catalogViewMode = signal<CatalogViewMode>('grid');
 
   readonly fallbackImage = 'https://www.mukkamtyres.com/assets/images/info.png';
   readonly categories = signal<Category[]>([
@@ -128,6 +130,22 @@ export class App implements OnInit {
   readonly cartSubtotal = computed(() =>
     this.cartItems().reduce((total, item) => total + item.product.price * item.quantity, 0)
   );
+
+  readonly activeCategoryName = computed(() => {
+    const selected = this.selectedCategory();
+    return this.categories().find((category) => category.slug === selected)?.name ?? 'Todo';
+  });
+
+  readonly canSubmitCheckout = computed(() => {
+    const form = this.checkout();
+    return Boolean(
+      form.customerName.trim()
+      && form.customerEmail.trim()
+      && form.customerPhone.trim()
+      && this.cartItems().length > 0
+      && !this.checkoutLoading()
+    );
+  });
 
   ngOnInit(): void {
     this.loadCategories();
@@ -177,6 +195,9 @@ export class App implements OnInit {
 
   removeFromCart(productId: number): void {
     this.cartItems.update((items) => items.filter((item) => item.product.id !== productId));
+    if (this.cartItems().length === 0) {
+      this.checkoutOpen.set(false);
+    }
   }
 
   openCheckout(): void {
@@ -271,6 +292,26 @@ export class App implements OnInit {
       REFUNDED: 'Pago devuelto',
     };
     return labels[status] ?? status;
+  }
+
+  paymentMethodLabel(method?: PaymentMethod): string {
+    const labels: Record<PaymentMethod, string> = {
+      PAY_AT_STORE: 'Pago al retirar',
+      BANK_TRANSFER: 'Transferencia',
+      MERCADO_PAGO: 'Mercado Pago',
+    };
+    return method ? labels[method] : 'Medio pendiente';
+  }
+
+  itemSubtotal(item: CartItem): number {
+    return item.product.price * item.quantity;
+  }
+
+  savingsPercentage(product: Product): number | null {
+    if (!product.originalPrice || product.originalPrice <= product.price) {
+      return null;
+    }
+    return Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
   }
 
   formatPrice(price: number): string {
