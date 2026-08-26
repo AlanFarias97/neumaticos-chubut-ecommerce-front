@@ -49,10 +49,24 @@ interface CheckoutForm {
 
 interface OrderResponse {
   id: number;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   pickupCode: string;
   totalAmount: number;
   status: string;
+  paymentMethod?: PaymentMethod;
   paymentStatus: string;
+  items?: OrderItemResponse[];
+  createdAt?: string;
+}
+
+interface OrderItemResponse {
+  productId: number;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
 }
 
 @Component({
@@ -72,6 +86,10 @@ export class App implements OnInit {
   readonly checkoutLoading = signal(false);
   readonly checkoutError = signal('');
   readonly orderSuccess = signal<OrderResponse | null>(null);
+  readonly lookupCode = signal('');
+  readonly lookupLoading = signal(false);
+  readonly lookupError = signal('');
+  readonly lookupResult = signal<OrderResponse | null>(null);
 
   readonly fallbackImage = 'https://www.mukkamtyres.com/assets/images/info.png';
   readonly categories = signal<Category[]>([
@@ -210,6 +228,49 @@ export class App implements OnInit {
         this.checkoutLoading.set(false);
       },
     });
+  }
+
+  lookupOrder(): void {
+    const code = this.lookupCode().trim().toUpperCase();
+    if (!code || this.lookupLoading()) {
+      return;
+    }
+
+    this.lookupLoading.set(true);
+    this.lookupError.set('');
+    this.lookupResult.set(null);
+
+    this.http.get<OrderResponse>(`/api/orders/pickup/${encodeURIComponent(code)}`).subscribe({
+      next: (order) => {
+        this.lookupResult.set(order);
+        this.lookupLoading.set(false);
+      },
+      error: () => {
+        this.lookupError.set('No encontramos un pedido con ese codigo.');
+        this.lookupLoading.set(false);
+      },
+    });
+  }
+
+  orderStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      PENDING: 'Pendiente',
+      CONFIRMED: 'Confirmado',
+      READY_FOR_PICKUP: 'Listo para retirar',
+      COMPLETED: 'Entregado',
+      CANCELLED: 'Cancelado',
+    };
+    return labels[status] ?? status;
+  }
+
+  paymentStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      PENDING: 'Pago pendiente',
+      PAID: 'Pago aprobado',
+      FAILED: 'Pago rechazado',
+      REFUNDED: 'Pago devuelto',
+    };
+    return labels[status] ?? status;
   }
 
   formatPrice(price: number): string {

@@ -103,6 +103,44 @@
         <li>Pago en local al retirar</li>
       </ul>
       <p>El codigo de retiro se genera cuando el pedido queda confirmado.</p>
+
+      <form class="lookup-form" (ngSubmit)="lookupOrder()">
+        <label for="pickup-code">Consultar pedido</label>
+        <div>
+          <input
+            id="pickup-code"
+            type="text"
+            placeholder="Codigo de retiro"
+            [ngModel]="lookupCode()"
+            (ngModelChange)="lookupCode.set($event)"
+            name="pickupCode"
+          />
+          <button type="submit" [disabled]="lookupLoading()">
+            {{ lookupLoading() ? 'Buscando' : 'Buscar' }}
+          </button>
+        </div>
+      </form>
+
+      @if (lookupError()) {
+        <p class="lookup-error">{{ lookupError() }}</p>
+      }
+
+      @if (lookupResult(); as order) {
+        <section class="lookup-result">
+          <div>
+            <span>{{ orderStatusLabel(order.status) }}</span>
+            <strong>{{ order.pickupCode }}</strong>
+          </div>
+          <p>{{ paymentStatusLabel(order.paymentStatus) }} - {{ formatPrice(order.totalAmount) }}</p>
+          @if (order.items?.length) {
+            <ul>
+              @for (item of order.items; track item.productId) {
+                <li>{{ item.quantity }} x {{ item.productName }}</li>
+              }
+            </ul>
+          }
+        </section>
+      }
     </aside>
   </section>
 
